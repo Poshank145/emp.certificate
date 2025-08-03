@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard</title>
+    <style>
+        table, th, td {
+            border: 1px solid black;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>👤 All Employees</h1>
+    <table>
+        <tr>
+            <th>Employee ID</th>
+            <th>Name</th>
+            <th>Father's Name</th>
+            <th>Mother's Name</th>
+            <th>SAP ID</th>
+            <th>Designation</th>
+            <th>Department</th>
+        </tr>
+        {% for emp in employees %}
+        <tr>
+            <td>{{ emp.emp_id }}</td>
+            <td>{{ emp.emp_name }}</td>
+            <td>{{ emp.father_name }}</td>
+            <td>{{ emp.mother_name }}</td>
+            <td>{{ emp.sap_id }}</td>
+            <td>{{ emp.designation }}</td>
+            <td>{{ emp.dept_id }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <h1>📘 All Trainings</h1>
+    <table>
+        <tr>
+            <th>Training ID</th>
+            <th>Emp ID</th>
+            <th>Training Name</th>
+            <th>Scheduled Date</th>
+            <th>Joining Date</th>
+            <th>Completion Date</th>
+        </tr>
+        {% for t in trainings %}
+        <tr>
+            <td>{{ t.training_id }}</td>
+            <td>{{ t.emp_id }}</td>
+            <td>{{ t.training_name }}</td>
+            <td>{{ t.scheduled_date }}</td>
+            <td>{{ t.joining_date }}</td>
+            <td>{{ t.completion_date }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Reviewer Two Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+        h2, h3 {
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 40px;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        a.button {
+            padding: 5px 10px;
+            background-color: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Welcome Reviewer Two (Sr. Officer), {{ username }}</h2>
+    <a href="/logout">Logout</a>
+
+    <h3>🔍 Pending Approvals</h3>
+    <table>
+        <tr>
+            <th>Employee ID</th>
+            <th>Training ID</th>
+            <th>Reviewer One Status</th>
+            <th>Reviewer Two Status</th>
+            <th>Action</th>
+        </tr>
+        {% for v in pending_verifications %}
+        <tr>
+            <td>{{ v.emp_id }}</td>
+            <td>{{ v.training_id }}</td>
+            <td>{{ v.reviewer_one_status }}</td>
+            <td>{{ v.reviewer_two_status }}</td>
+            <td>
+                <a class="button" href="/review_request/{{ v.emp_id }}">Review</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <h3>📄 Approval History</h3>
+    <table>
+        <tr>
+            <th>Employee ID</th>
+            <th>Training ID</th>
+            <th>Reviewer One Status</th>
+            <th>Reviewer Two Status</th>
+            <th>Certificate</th>
+        </tr>
+        {% for v in all_verifications %}
+        <tr>
+            <td>{{ v.emp_id }}</td>
+            <td>{{ v.training_id }}</td>
+            <td>{{ v.reviewer_one_status }}</td>
+            <td>{{ v.reviewer_two_status }}</td>
+            <td>
+                {% if v.reviewer_one_status == 'approved' and v.reviewer_two_status == 'approved' %}
+                    <a class="button" href="{{ url_for('static', filename='certificates/' + v.emp_id + '_' + v.training_id|string + '.txt') }}" target="_blank">View Certificate</a>
+                {% elif v.reviewer_two_status == 'pending' %}
+                    Pending
+                {% else %}
+                    {{ v.reviewer_two_status }}
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

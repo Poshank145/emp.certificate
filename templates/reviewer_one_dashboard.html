@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Reviewer One Dashboard</title>
+</head>
+<body>
+    <h2>Pending Verification Requests</h2>
+    <table border="1">
+        <tr>
+            <th>Employee ID</th>
+            <th>Name</th>
+            <th>Training Name</th>
+            <th>Actions</th>
+        </tr>
+        {% for status, employee, training in requests %}
+        <tr>
+            <td>{{ employee.emp_id }}</td>
+            <td>{{ employee.emp_name }}</td>
+            <td>{{ training.training_name }}</td>
+            <td>
+                <form action="{{ url_for('reviewer_one_action') }}" method="post" style="display:inline;">
+                    <input type="hidden" name="certificate_id" value="{{ status.certificate_id }}">
+                    <button name="action" value="approve">Approve</button>
+                    <button name="action" value="reject">Reject</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

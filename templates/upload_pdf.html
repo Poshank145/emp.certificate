@@ -1,0 +1,15 @@
+ <h2>Upload PDF or Enter Employee Details</h2>
+
+<form method="POST" action="{{ url_for('upload_pdf') }}" enctype="multipart/form-data">
+    <input type="file" name="pdf">
+    <button type="submit" name="submit_type" value="Upload PDF">Upload PDF</button>
+</form>
+
+<hr>
+
+<form method="POST">
+    Name: <input type="text" name="manual_name"><br>
+    Emp ID: <input type="text" name="manual_id"><br>
+    Training Status: <input type="text" name="training_status"><br>
+    <button type="submit" name="submit_type" value="Submit Manually">Submit Manually</button>
+</form>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Reviewer Two Dashboard</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 40px;
+        }
+        th, td {
+            border: 1px solid #999;
+            padding: 8px;
+        }
+        h2, h3 {
+            margin-top: 30px;
+        }
+        a {
+            text-decoration: none;
+            color: blue;
+        }
+    </style>
+</head>
+<body>
+    <h2>Welcome Sr. Officer, {{ username }}</h2>
+    <a href="/logout">Logout</a>
+
+    <h3>🕒 Pending Approvals</h3>
+    <table>
+        <tr>
+            <th>Employee ID</th>
+            <th>Training ID</th>
+            <th>Action</th>
+        </tr>
+        {% for v in pending_verifications %}
+        <tr>
+            <td>{{ v.emp_id }}</td>
+            <td>{{ v.training_id }}</td>
+            <td><a href="{{ url_for('review_request', emp_id=v.emp_id) }}">Review</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3">No pending approvals.</td></tr>
+        {% endfor %}
+    </table>
+
+    <h3>📜 Approval History</h3>
+    <table>
+        <tr>
+            <th>Employee ID</th>
+            <th>Training ID</th>
+            <th>Reviewer One Status</th>
+            <th>Reviewer Two Status</th>
+            <th>Certificate</th>
+        </tr>
+        {% for v in all_verifications %}
+        <tr>
+            <td>{{ v.emp_id }}</td>
+            <td>{{ v.training_id }}</td>
+            <td>{{ v.reviewer_one_status }}</td>
+            <td>{{ v.reviewer_two_status }}</td>
+            <td>
+                {% if v.reviewer_two_status == 'approved' %}
+                    <a href="{{ url_for('static', filename='certificates/' + v.emp_id + '_' + v.training_id|string + '.txt') }}" target="_blank">View Certificate</a>
+                {% else %}
+                    Pending
+                {% endif %}
+            </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5">No verification records.</td></tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

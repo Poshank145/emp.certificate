@@ -1,0 +1,180 @@
+<!-- <h2>Upload Result</h2>
+<p><strong>Name:</strong> {{ emp_name  }}</p>
+<p><strong>Employee ID:</strong> {{ emp_id }}</p>
+<p><strong>Training Status:</strong> {{ training_status }}</p>
+<p><strong>Verification:</strong> {{ verification_status }}</p>
+
+
+ 
+
+
+{% if role == 'reviewer_one' and verification and verification.reviewer_one_status == 'pending' %}
+    <form method="POST" action="/reviewer_one_decision">
+        <input type="hidden" name="emp_id" value="{{ emp_id }}">
+        <input type="submit" name="decision" value="Approve">
+        <input type="submit" name="decision" value="Reject">
+    </form>
+{% elif role == 'reviewer_two' and verification and verification.reviewer_one_status == 'approved' and verification.reviewer_two_status == 'pending' %}
+    <form method="POST" action="/reviewer_two_decision">
+        <input type="hidden" name="emp_id" value="{{ emp_id }}">
+        <input type="submit" name="decision" value="Approve">
+        <input type="submit" name="decision" value="Reject">
+    </form>
+{% endif %}
+ -->
+
+ <!-- <!DOCTYPE html>
+<html>
+<head>
+    <title>Upload Result</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+        h2, h3 {
+            color: #333;
+        }
+        p {
+            margin: 6px 0;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        button {
+            margin-right: 10px;
+            padding: 6px 12px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h2>Verification Result</h2>
+
+    <div class="section">
+        <p><strong>Employee Name:</strong> {{ emp_name }}</p>
+        <p><strong>Employee ID:</strong> {{ emp_id }}</p>
+        <p><strong>Training Status:</strong> {{ training_status }}</p>
+                <p><strong>Training ID:</strong> {{ training_id }}</p>
+
+        <p><strong>Verification Status:</strong> {{ verification_status }}</p>
+    </div>
+
+    {% if employee %}
+    <div class="section">
+        <h3>Employee Details from Database:</h3>
+        <p><strong>Father Name:</strong> {{ employee.father_name }}</p>
+        <p><strong>Mother Name:</strong> {{ employee.mother_name }}</p>
+        <p><strong>SAP ID:</strong> {{ employee.sap_id }}</p>
+        <p><strong>Designation:</strong> {{ employee.designation }}</p>
+    </div>
+    {% endif %}
+
+    {% if employee and training_status.lower() == 'completed' %}
+    <div class="section">
+        <h3>Review Actions</h3>
+        {% if role == 'reviewer_one' %}
+        <form method="POST" action="/reviewer_one_decision">
+            <input type="hidden" name="emp_id" value="{{ emp_id }}">
+            <button type="submit" name="decision" value="approve">Approve</button>
+            <button type="submit" name="decision" value="reject">Reject</button>
+        </form>
+        {% elif role == 'reviewer_two' %}
+        <form method="POST" action="/reviewer_two_decision">
+            <input type="hidden" name="emp_id" value="{{ emp_id }}">
+            <button type="submit" name="decision" value="approve">Final Approve</button>
+            <button type="submit" name="decision" value="reject">Final Reject</button>
+        </form>
+        {% endif %}
+    </div>
+    {% elif employee %}
+    <div class="section">
+        <p style="color: red;"><strong>Training not completed. Cannot proceed with approval.</strong></p>
+    </div>
+    {% endif %}
+</body>
+</html> -->
+
+
+
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upload Result</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+        h2, h3 {
+            color: #333;
+        }
+        p {
+            margin: 6px 0;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        button {
+            margin-right: 10px;
+            padding: 6px 12px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h2>Verification Result</h2>
+
+    <div class="section">
+        <p><strong>Employee Name:</strong> {{ emp_name }}</p>
+        <p><strong>Employee ID:</strong> {{ emp_id }}</p>
+        <p><strong>Training Status:</strong> {{ training_status }}</p>
+        <p><strong>Training ID:</strong> {{ training_id }}</p>
+        <p><strong>Verification Status:</strong> {{ verification_status }}</p>
+    </div>
+
+    {% if employee %}
+    <div class="section">
+        <h3>Employee Details from Database:</h3>
+        <p><strong>Father Name:</strong> {{ employee.father_name }}</p>
+        <p><strong>Mother Name:</strong> {{ employee.mother_name }}</p>
+        <p><strong>SAP ID:</strong> {{ employee.sap_id }}</p>
+        <p><strong>Designation:</strong> {{ employee.designation }}</p>
+    </div>
+    {% endif %}
+
+    {% if employee and training_status.lower() == 'completed' %}
+    <div class="section">
+        <h3>Review Actions</h3>
+
+        {% if role == 'reviewer_one' and verification.reviewer_one_status == 'pending' %}
+        <form method="POST" action="/reviewer_one_decision">
+    <input type="hidden" name="emp_id" value="{{ emp_id }}">
+    <input type="hidden" name="training_id" value="{{ training_id }}">
+    <button type="submit" name="decision" value="approve">Approve</button>
+    <button type="submit" name="decision" value="reject">Reject</button>
+</form>
+
+        {% elif role == 'reviewer_two' and verification.reviewer_one_status == 'approved' and verification.reviewer_two_status == 'pending' %}
+        <form method="POST" action="/reviewer_two_decision">
+            <input type="hidden" name="emp_id" value="{{ emp_id }}">
+            <button type="submit" name="decision" value="approve">Final Approve</button>
+            <button type="submit" name="decision" value="reject">Final Reject</button>
+        </form>
+
+        {% elif role == 'reviewer_two' and verification.reviewer_one_status != 'approved' %}
+        <p style="color: orange;"><strong>Reviewer One must approve before Reviewer Two can act.</strong></p>
+
+        {% endif %}
+    </div>
+
+    {% elif employee %}
+    <div class="section">
+        <p style="color: red;"><strong>Training not completed. Cannot proceed with approval.</strong></p>
+    </div>
+    {% endif %}
+</body>
+</html>
