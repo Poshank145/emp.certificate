@@ -1,0 +1,678 @@
+app. py
+
+
+
+
+ 
+from flask import flash, Flask, render_template, request, redirect, url_for, session
+import pytesseract
+from pdf2image import convert_from_path
+import os
+from werkzeug.utils import secure_filename
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
+
+app = Flask(__name__)
+app.secret_key = 'secretkey'
+
+UPLOAD_FOLDER = 'uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:poshank%4014database@localhost/nmdc'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+if not os.path.exists('certificates'):
+    os.makedirs('certificates')
+
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+db = SQLAlchemy(app)
+
+class User(db.Model):
+    __tablename__ = 'user'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password = db.Column(db.String(120), nullable=False)
+    role = db.Column(db.String(20), nullable=False)
+
+class Department(db.Model):
+    __tablename__ = 'department'
+    dept_id = db.Column(db.Integer, primary_key=True)
+    dept_name = db.Column(db.String(100), unique=True, nullable=False)
+
+class Employee(db.Model):
+    __tablename__ = 'employee'
+    emp_id = db.Column(db.String(20), primary_key=True)
+    emp_name = db.Column(db.String(50))
+    father_name = db.Column(db.String(50))
+    mother_name = db.Column(db.String(50))
+    sap_id = db.Column(db.String(50), nullable=False)
+    designation = db.Column(db.String(100))
+    dept_id = db.Column(db.Integer, db.ForeignKey('department.dept_id'))
+
+class VerificationStatus(db.Model):
+    __tablename__ = 'verification_status'
+    certificate_id = db.Column(db.Integer, primary_key=True)
+    emp_id = db.Column(db.String(50), db.ForeignKey('employee.emp_id'))
+    # training_id = db.Column(db.Integer)
+    training_status = db.Column(db.String(50))  # or adjust size if needed
+
+    verification_status = db.Column(db.String(20), default='pending')
+    reviewer_one_status = db.Column(db.String(20), default='pending')
+    reviewer_two_status = db.Column(db.String(20), default='pending')
+
+
+
+@app.route('/')
+def home():
+    return '''<h1>Welcome to Certificate System</h1> Go to <a href="/login">Login</a> or <a href="/register">Register</a>'''
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = generate_password_hash(request.form['password'])
+        role = request.form['role']
+        if role == 'lower':
+            role = 'reviewer_one'
+        elif role == 'higher':
+            role = 'reviewer_two'
+
+        existing_user = User.query.filter_by(username=username).first()
+        if existing_user:
+            flash('Username already exists')
+            return redirect('/register')
+
+        user = User(username=username, password=password, role=role)
+        db.session.add(user)
+        db.session.commit()
+        return redirect('/login')
+    return render_template('register.html')
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        user = User.query.filter_by(username=username).first()
+
+        if user and check_password_hash(user.password, password):
+            session['username'] = user.username
+            session['role'] = user.role
+
+            if user.role == 'reviewer_one':
+                return redirect('/dashboard_reviewer_one')
+            elif user.role == 'reviewer_two':
+                return redirect('/dashboard_reviewer_two')
+            elif user.role == 'admin':
+                return redirect('/admin_dashboard')
+            else:
+                return "Invalid role assigned."
+        else:
+            return render_template('login.html', error="Invalid username or password")
+
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect('/login')
+
+@app.route('/reviewer_one_dashboard')
+def reviewer_one_dashboard():
+    if session.get('role') == 'reviewer_one':
+        return render_template('dashboard_reviewer_one.html', username=session['username'])
+    return redirect(url_for('login'))
+
+
+@app.route('/dashboard_reviewer_one')
+def dashboard_reviewer_one():
+    if 'username' not in session or session.get('role') != 'reviewer_one':
+        return redirect('/login')  # Protect the route
+
+    username = session.get('username')
+    return render_template('dashboard_reviewer_one.html', username=username)
+
+
+
+@app.route('/dashboard_reviewer_two')
+def dashboard_reviewer_two():
+    if 'username' not in session or session.get('role') != 'reviewer_two':
+        return redirect('/login')
+
+    pending_verifications = VerificationStatus.query.filter_by(
+        reviewer_one_status='approved',
+        reviewer_two_status='pending'
+    ).all()
+
+    all_verifications = VerificationStatus.query.filter_by(
+        reviewer_one_status='approved'
+    ).all()
+
+    return render_template(
+        'dashboard_reviewer_two.html',
+        username=session['username'],
+        pending_verifications=pending_verifications,
+        all_verifications=all_verifications
+    )
+
+
+@app.route('/admin_dashboard')
+def admin_dashboard():
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    employees = Employee.query.all()
+    return render_template('admin_dashboard.html', employees=employees)
+
+@app.route('/upload_pdf', methods=['GET', 'POST'])
+def upload_pdf():
+    if session.get('role') not in ['reviewer_one', 'admin']:
+        return redirect(url_for('login'))
+
+    emp_name = emp_id = training_status = ""
+    
+    if request.method == 'POST':
+        submit_type = request.form['submit_type']
+        
+        if submit_type == 'Upload PDF':
+            file = request.files['pdf']
+            if file:
+                filename = secure_filename(file.filename)
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(filepath)
+
+                images = convert_from_path(
+                    filepath,
+                    poppler_path=r'C:\Users\Poshank Markam\Downloads\Release-24.08.0-0\poppler-24.08.0\Library\bin'
+                )
+                text = "".join([pytesseract.image_to_string(image) for image in images])
+                emp_name, emp_id, training_status = extract_name_id_status(text)
+
+        else:
+            # Manual entry
+            emp_name = request.form['manual_name']
+            emp_id = request.form['manual_id']
+            training_status = request.form['training_status']
+
+        emp_id = emp_id.strip() if emp_id else None
+        training_status = training_status.strip().lower() if training_status else ""
+
+        employee = Employee.query.filter_by(emp_id=emp_id, emp_name=emp_name).first()
+        verification = VerificationStatus.query.filter_by(emp_id=emp_id).first()
+
+        if not employee:
+            flash(f"Employee ID {emp_id} not found in database. Cannot proceed.")
+            return redirect(url_for('upload_pdf'))
+
+        if not verification:
+            verification = VerificationStatus(
+                emp_id=emp_id,
+                verification_status=0,
+                reviewer_one_status='pending',
+                reviewer_two_status='pending'
+            )
+            db.session.add(verification)
+            db.session.commit()
+
+        verification_status = "Matched" if employee else "Unmatched"
+
+        return render_template(
+            'upload_result.html',
+            emp_name=emp_name,
+            emp_id=emp_id,
+            training_status=training_status,
+            verification_status=verification_status,
+            employee=employee,
+            verification=verification,
+            role=session.get('role')
+        )
+
+    return render_template('upload_pdf.html')
+
+def extract_name_id_status(text):
+    name = emp_id = training_status = "Not Found"
+    for line in text.split('\n'):
+        line = line.strip()
+        if 'Name' in line:
+            name = line.split(':')[-1].strip()
+        elif 'Employee ID' in line or 'ID' in line:
+            emp_id = line.split(':')[-1].strip()
+        elif 'Training Status' in line:
+            training_status = line.split(':')[-1].strip()
+    return name, emp_id, training_status
+
+@app.route('/reviewer_one_decision', methods=['POST'])
+def reviewer_one_decision():
+    emp_id = request.form['emp_id']
+    training_id = request.form.get('training_id')
+    decision = request.form['decision'].lower()  # 'approve' or 'reject'
+
+    verification = VerificationStatus.query.filter_by(emp_id=emp_id).first()
+    if verification:
+        verification.reviewer_one_status = 'approved' if decision == 'approve' else 'rejected'
+        
+        # If rejected, no need for reviewer two
+        if decision == 'reject':
+            verification.reviewer_two_status = 'rejected'
+        
+        db.session.commit()
+
+    return redirect('/reviewer_one_dashboard')
+
+
+@app.route('/reviewer_two_decision/<emp_id>', methods=['GET', 'POST'])
+def reviewer_two_decision(emp_id):
+    if session.get('role') != 'reviewer_two':
+        flash("Unauthorized access.")
+        return redirect(url_for('login'))
+
+    verification = VerificationStatus.query.filter_by(emp_id=emp_id).first()
+    if not verification:
+        flash("No verification request found for this employee.")
+        return redirect(url_for('dashboard_reviewer_two'))
+
+    employee = Employee.query.filter_by(emp_id=emp_id).first()
+
+    if request.method == 'POST':
+        decision = request.form.get('decision')
+        if decision == 'approve':
+            verification.reviewer_two_status = 'approved'
+            verification.verification_status = 1  # Fully verified
+
+            # ✅ Generate certificate
+            if employee:
+                cert_path = generate_certificate(
+                    emp_id=employee.emp_id,
+                    emp_name=employee.emp_name,
+                    designation=employee.designation
+                )
+                # Optional: Save cert_path in the database if needed
+                flash(f"Final approval completed. Certificate generated at {cert_path}")
+            else:
+                flash("Final approval done, but employee record not found for certificate.")
+
+            db.session.commit()
+        elif decision == 'reject':
+            verification.reviewer_two_status = 'rejected'
+            verification.verification_status = -1
+            db.session.commit()
+            flash(f"Final rejection recorded for {emp_id}.")
+        else:
+            flash("Invalid action.")
+
+        return redirect(url_for('dashboard_reviewer_two'))
+
+    # GET request - render upload_result
+    return render_template('upload_result.html',
+                           emp_id=emp_id,
+                           emp_name=employee.emp_name if employee else None,
+                           training_status=verification.training_status,
+                           training_id=verification.training_id,
+                           verification_status=verification.verification_status,
+                           employee=employee,
+                           verification=verification,
+                           role='reviewer_two')
+
+
+
+
+
+if __name__ == '__main__':
+    with app.app_context():
+        app.run(debug=True, use_reloader=False)
+
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+import os
+from datetime import datetime
+
+def generate_certificate(emp_id, emp_name, designation):
+    cert_folder = os.path.join('static', 'certificates')
+    os.makedirs(cert_folder, exist_ok=True)
+
+    cert_path = os.path.join(cert_folder, f"{emp_id}_certificate.pdf")
+    c = canvas.Canvas(cert_path, pagesize=letter)
+    width, height = letter
+
+    c.setFont("Helvetica-Bold", 20)
+    c.drawCentredString(width / 2, height - 100, "Certificate of Completion")
+
+    c.setFont("Helvetica", 14)
+    c.drawCentredString(width / 2, height - 160, f"This is to certify that")
+    c.setFont("Helvetica-Bold", 16)
+    c.drawCentredString(width / 2, height - 190, emp_name)
+    c.setFont("Helvetica", 14)
+    c.drawCentredString(width / 2, height - 220, f"(Employee ID: {emp_id})")
+
+    c.drawCentredString(width / 2, height - 260, f"Designation: {designation}")
+    c.drawCentredString(width / 2, height - 290, f"has successfully completed the required training.")
+    c.drawCentredString(width / 2, height - 340, f"Date: {datetime.now().strftime('%d %B %Y')}")
+
+    c.save()
+    return cert_path
+
+
+@app.route('/reviewer_two_pending')
+def reviewer_two_pending():
+    if session.get('role') != 'reviewer_two':
+        return redirect('/login')
+    verifications = VerificationStatus.query.filter_by(reviewer_one_status='approved', reviewer_two_status='pending').all()
+    return render_template('reviewer_two_dashboard.html', verifications=verifications)
+
+
+@app.route('/review_request/<emp_id>')
+def review_request(emp_id):
+    if 'username' not in session or session.get('role') != 'reviewer_two':
+        return redirect('/login')
+
+    employee = Employee.query.filter_by(emp_id=emp_id).first()
+    verification = VerificationStatus.query.filter_by(emp_id=emp_id).first()
+
+    if not employee or not verification:
+        flash("Employee or verification record not found.")
+        return redirect('/dashboard_reviewer_two')
+
+    return render_template('upload_result.html',
+                           emp_name=employee.emp_name,
+                           emp_id=emp_id,
+                           training_status='Completed',  # Or extract from verification if stored
+                           verification_status='Matched',  # Based on logic
+                           role='reviewer_two',
+                           verification=verification,
+                           training_id=verification.training_id)
+
+
+
+@app.route('/final_approval', methods=['POST'])
+def final_approval():
+    if 'username' not in session or session.get('role') != 'reviewer_two':
+        return redirect('/login')
+
+    emp_id = request.form['emp_id']
+    decision = request.form['decision']
+    training_id = request.form['training_id']
+
+    verification = VerificationStatus.query.filter_by(emp_id=emp_id).first()
+    if not verification:
+        flash("Verification record not found.")
+        return redirect('/dashboard_reviewer_two')
+
+    if decision == 'approved':
+        verification.status = 'fully_approved'
+
+        # Generate certificate logic here (simple example)
+        certificate = Certificate(
+            emp_id=emp_id,
+            training_id=training_id,
+            issued_by=session['username']
+        )
+        db.session.add(certificate)
+
+    elif decision == 'rejected':
+        verification.status = 'rejected_by_reviewer_two'
+
+    db.session.commit()
+    flash("Decision saved successfully.")
+    return redirect('/dashboard_reviewer_two')
+
+
+
+
+dashboard reviewer 2
+
+
+ <!DOCTYPE html>
+<html>
+<head>
+    <title>Reviewer Two Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+
+        h2 {
+            color: #333;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 12px;
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+
+        th {
+            background-color: #f5f5f5;
+        }
+
+        a.button, button {
+            padding: 6px 12px;
+            text-decoration: none;
+            color: white;
+            background-color: #007bff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        a.button:hover, button:hover {
+            background-color: #0056b3;
+        }
+
+        .flash {
+            color: green;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Reviewer Two Dashboard</h2>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="flash">
+            {% for message in messages %}
+              <p>{{ message }}</p>
+            {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <!-- Pending Verifications -->
+    <h3>Pending Verifications (Need Review)</h3>
+    {% if pending_verifications %}
+        <table>
+            <tr>
+                <th>Employee ID</th>
+                <th>Employee Name</th>
+                <th>Training Completed</th>
+                <th>Action</th>
+            </tr>
+            {% for v in pending_verifications %}
+            <tr>
+                <td>{{ v.emp_id }}</td>
+                <td>{{ v.emp_name }}</td>
+                <td>{{ v.training_status }}</td>
+                <td>
+                    <form method="GET" action="{{ url_for('reviewer_two_decision', emp_id=v.emp_id) }}">
+                        <button type="submit">Review</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p>No pending verifications.</p>
+    {% endif %}
+
+    <!-- All Verifications Approved by Reviewer One -->
+    <h3>All Verifications Approved by Reviewer One</h3>
+    <table>
+        <tr>
+            <th>Employee ID</th>
+            <th>Employee Name</th>
+            <th>Reviewer Two Status</th>
+            <th>Certificate</th>
+        </tr>
+        {% for v in all_verifications %}
+        <tr>
+            <td>{{ v.emp_id }}</td>
+            <td>{{ v.emp_name }}</td>
+            <td>{{ v.reviewer_two_status }}</td>
+            <td>
+                {% if v.reviewer_two_status == 'approved' %}
+                    <a class="button" href="{{ url_for('static', filename='certificates/' + v.emp_id + '_certificate.pdf') }}" target="_blank">Download</a>
+                {% else %}
+                    Not Available
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+
+</body>
+</html>
+
+
+
+
+
+
+
+reviwer 2 dashboard
+
+<!-- templates/reviewer_two_dashboard.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Reviewer Two Approvals</title>
+</head>
+<body>
+    <h2>Pending Requests for Approval</h2>
+    <a href="/dashboard_reviewer_two">Back to Dashboard</a>
+    <table border="1" cellpadding="10">
+        <tr>
+            <th>Employee ID</th>
+            <th>Training ID</th>
+            <th>Reviewer One Status</th>
+            <th>Reviewer Two Status</th>
+            <th>Action</th>
+        </tr>
+        {% for v in verifications %}
+        <tr>
+            <td>{{ v.emp_id }}</td>
+            <td>{{ v.training_id }}</td>
+            <td>{{ v.reviewer_one_status }}</td>
+            <td>{{ v.reviewer_two_status }}</td>
+            <td>
+                <form method="POST" action="/reviewer_two_view">
+                    <input type="hidden" name="emp_id" value="{{ v.emp_id }}">
+                    <input type="hidden" name="training_id" value="{{ v.training_id }}">
+                    <button type="submit">Review</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
+
+
+
+
+upload result 
+
+
+ <!DOCTYPE html>
+<html>
+<head>
+    <title>Upload Result</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+
+        h2, h3 {
+            color: #333;
+        }
+
+        p {
+            margin: 6px 0;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        button {
+            margin-right: 10px;
+            padding: 6px 12px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h2>Verification Result</h2>
+
+    <div class="section">
+        <p><strong>Employee Name:</strong> {{ emp_name }}</p>
+        <p><strong>Employee ID:</strong> {{ emp_id }}</p>
+        <p><strong>Verification Status:</strong> {{ verification_status }}</p>
+    </div>
+
+    <!-- DEBUG INFO -->
+    <div style="background: #f9f9f9; padding: 10px; border: 1px dashed #ccc;">
+        <p><strong>DEBUG: Role:</strong> {{ role }}</p>
+        <p><strong>DEBUG: Reviewer One Status:</strong> {{ verification.reviewer_one_status }}</p>
+        <p><strong>DEBUG: Reviewer Two Status:</strong> {{ verification.reviewer_two_status }}</p>
+        <p><strong>DEBUG: Employee Exists?</strong> {{ employee is not none }}</p>
+    </div>
+
+    {% if employee %}
+    <div class="section">
+        <h3>Employee Details from Database:</h3>
+        <p><strong>Father Name:</strong> {{ employee.father_name }}</p>
+        <p><strong>Mother Name:</strong> {{ employee.mother_name }}</p>
+        <p><strong>SAP ID:</strong> {{ employee.sap_id }}</p>
+        <p><strong>Designation:</strong> {{ employee.designation }}</p>
+    </div>
+
+    <div class="section">
+        <h3>Review Actions</h3>
+
+        {% if role == 'reviewer_one' and verification.reviewer_one_status == 'pending' %}
+        <form method="POST" action="/reviewer_one_decision">
+            <input type="hidden" name="emp_id" value="{{ emp_id }}">
+            <button type="submit" name="decision" value="approve">Approve</button>
+            <button type="submit" name="decision" value="reject">Reject</button>
+        </form>
+
+        {% elif role == 'reviewer_two' and verification.reviewer_one_status == 'approved' and verification.reviewer_two_status == 'pending' %}
+        <form method="POST" action="{{ url_for('reviewer_two_decision', emp_id=emp_id) }}">
+            <input type="hidden" name="emp_id" value="{{ emp_id }}">
+            <button type="submit" name="decision" value="approve">Final Approve</button>
+            <button type="submit" name="decision" value="reject">Final Reject</button>
+        </form>
+
+        {% elif role == 'reviewer_two' and verification.reviewer_one_status != 'approved' %}
+        <p style="color: orange;"><strong>Reviewer One must approve before Reviewer Two can act.</strong></p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</body>
+</html>

@@ -693,6 +693,12 @@
 #     with app.app_context():
 #         app.run(debug=True, use_reloader=False)import uuid
 
+
+
+
+
+
+
 from flask import flash, Flask, render_template, request, redirect, url_for, session
 import pytesseract
 from pdf2image import convert_from_path
@@ -745,7 +751,9 @@ class VerificationStatus(db.Model):
     __tablename__ = 'verification_status'
     certificate_id = db.Column(db.Integer, primary_key=True)
     emp_id = db.Column(db.String(50), db.ForeignKey('employee.emp_id'))
-    training_id = db.Column(db.Integer)
+    # training_id = db.Column(db.Integer)
+    training_status = db.Column(db.String(50))  # or adjust size if needed
+
     verification_status = db.Column(db.String(20), default='pending')
     reviewer_one_status = db.Column(db.String(20), default='pending')
     reviewer_two_status = db.Column(db.String(20), default='pending')
@@ -754,7 +762,7 @@ class VerificationStatus(db.Model):
 
 @app.route('/')
 def home():
-    return '''<h1>Welcome to Certificate System</h1> Go to <a href="/login">Login</a> or <a href="/register">Register</a>'''
+    return render_template('welcome.html')
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -777,18 +785,17 @@ def register():
         db.session.commit()
         return redirect('/login')
     return render_template('register.html')
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
 
-        # DEBUG PRINT (Optional for terminal check)
-        print(f"Trying login: {username} / {password}")
+        user = User.query.filter_by(username=username).first()
 
-        user = User.query.filter_by(username=username, password=password).first()
-
-        if user:
+        if user and check_password_hash(user.password, password):
             session['username'] = user.username
             session['role'] = user.role
 
@@ -800,7 +807,6 @@ def login():
                 return redirect('/admin_dashboard')
             else:
                 return "Invalid role assigned."
-
         else:
             return render_template('login.html', error="Invalid username or password")
 
@@ -816,6 +822,17 @@ def reviewer_one_dashboard():
     if session.get('role') == 'reviewer_one':
         return render_template('dashboard_reviewer_one.html', username=session['username'])
     return redirect(url_for('login'))
+
+
+@app.route('/dashboard_reviewer_one')
+def dashboard_reviewer_one():
+    if 'username' not in session or session.get('role') != 'reviewer_one':
+        return redirect('/login')  # Protect the route
+
+    username = session.get('username')
+    return render_template('dashboard_reviewer_one.html', username=username)
+
+
 
 @app.route('/dashboard_reviewer_two')
 def dashboard_reviewer_two():
@@ -852,42 +869,43 @@ def upload_pdf():
         return redirect(url_for('login'))
 
     emp_name = emp_id = training_status = ""
+    
     if request.method == 'POST':
         submit_type = request.form['submit_type']
+        
         if submit_type == 'Upload PDF':
             file = request.files['pdf']
             if file:
                 filename = secure_filename(file.filename)
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                 file.save(filepath)
+
                 images = convert_from_path(
                     filepath,
                     poppler_path=r'C:\Users\Poshank Markam\Downloads\Release-24.08.0-0\poppler-24.08.0\Library\bin'
                 )
                 text = "".join([pytesseract.image_to_string(image) for image in images])
                 emp_name, emp_id, training_status = extract_name_id_status(text)
+
         else:
+            # Manual entry
             emp_name = request.form['manual_name']
             emp_id = request.form['manual_id']
             training_status = request.form['training_status']
 
         emp_id = emp_id.strip() if emp_id else None
+        training_status = training_status.strip().lower() if training_status else ""
+
         employee = Employee.query.filter_by(emp_id=emp_id, emp_name=emp_name).first()
         verification = VerificationStatus.query.filter_by(emp_id=emp_id).first()
 
+        if not employee:
+            flash(f"Employee ID {emp_id} not found in database. Cannot proceed.")
+            return redirect(url_for('upload_pdf'))
+
         if not verification:
-            max_training_id = db.session.query(db.func.max(VerificationStatus.training_id)).scalar()
-            new_training_id = (max_training_id or 100) + 1
-
-            if not employee:
-                flash(f"Employee ID {emp_id} not found in database. Cannot proceed.")
-                return redirect(url_for('upload_pdf'))
-
             verification = VerificationStatus(
                 emp_id=emp_id,
-                training_id=new_training_id,
-                training_status=training_status,  # this line is important
-
                 verification_status=0,
                 reviewer_one_status='pending',
                 reviewer_two_status='pending'
@@ -905,8 +923,7 @@ def upload_pdf():
             verification_status=verification_status,
             employee=employee,
             verification=verification,
-            role=session.get('role'),
-            training_id=verification.training_id
+            role=session.get('role')
         )
 
     return render_template('upload_pdf.html')
@@ -942,25 +959,107 @@ def reviewer_one_decision():
     return redirect('/reviewer_one_dashboard')
 
 
-@app.route('/reviewer_two_decision', methods=['POST'])
-def reviewer_two_decision():
-    emp_id = request.form['emp_id']
-    decision = request.form['decision'].lower()
+
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+import os
+from datetime import datetime
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+import os
+from datetime import datetime
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+import os
+from datetime import datetime
+
+def generate_certificate(emp_id, emp_name, designation):
+    # 🔍 Absolute path for debug
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    cert_folder = os.path.join(base_dir, 'static', 'certificates')
+    os.makedirs(cert_folder, exist_ok=True)
+
+    cert_path = os.path.join(cert_folder, f"{emp_id}_certificate.pdf")
+
+    print(f"\n[DEBUG] Saving certificate at: {cert_path}\n")
+
+    c = canvas.Canvas(cert_path, pagesize=letter)
+    width, height = letter
+
+    c.setFont("Helvetica-Bold", 20)
+    c.drawCentredString(width / 2, height - 100, "Certificate of Completion")
+
+    c.setFont("Helvetica", 14)
+    c.drawCentredString(width / 2, height - 160, f"This is to certify that")
+    c.setFont("Helvetica-Bold", 16)
+    c.drawCentredString(width / 2, height - 190, emp_name)
+    c.setFont("Helvetica", 14)
+    c.drawCentredString(width / 2, height - 220, f"(Employee ID: {emp_id})")
+
+    c.drawCentredString(width / 2, height - 260, f"Designation: {designation}")
+    c.drawCentredString(width / 2, height - 290, f"has successfully completed the required training.")
+    c.drawCentredString(width / 2, height - 340, f"Date: {datetime.now().strftime('%d %B %Y')}")
+
+    c.save()
+
+    # Return relative path for use in template
+    return f"static/certificates/{emp_id}_certificate.pdf"
+
+
+
+@app.route('/reviewer_two_decision/<emp_id>', methods=['GET', 'POST'])
+def reviewer_two_decision(emp_id):
+    if session.get('role') != 'reviewer_two':
+        flash("Unauthorized access.")
+        return redirect(url_for('login'))
 
     verification = VerificationStatus.query.filter_by(emp_id=emp_id).first()
-    if verification and verification.reviewer_one_status == 'approved' and verification.reviewer_two_status == 'pending':
-        verification.reviewer_two_status = 'approved' if decision == 'approve' else 'rejected'
-        db.session.commit()
+    if not verification:
+        flash("No verification request found.")
+        return redirect(url_for('dashboard_reviewer_two'))
 
-        if verification.reviewer_two_status == 'approved':
-            generate_certificate(emp_id)
-            flash("✅ Certificate generated and request fully approved.")
+    employee = Employee.query.filter_by(emp_id=emp_id).first()
+
+    if request.method == 'POST':
+        decision = request.form.get('decision')
+
+        if decision == 'approve':
+            verification.reviewer_two_status = 'approved'
+            verification.verification_status = 1
+
+            # ✅ Generate certificate and ensure it goes inside /static/certificates/
+            if employee:
+                cert_path = generate_certificate(
+                    emp_id=employee.emp_id,
+                    emp_name=employee.emp_name,
+                    designation=employee.designation
+                )
+                flash(f"Certificate generated for {emp_id}.")
+            else:
+                flash("Employee details missing, but approval saved.")
+
+            db.session.commit()
+
+        elif decision == 'reject':
+            verification.reviewer_two_status = 'rejected'
+            verification.verification_status = -1
+            db.session.commit()
+            flash(f"Verification rejected for {emp_id}.")
+
         else:
-            flash("❌ Reviewer Two rejected the request.")
-    else:
-        flash("⚠️ Approval not allowed. Either already reviewed or Reviewer One hasn't approved yet.")
+            flash("Invalid decision.")
 
-    return redirect('/reviewer_two_dashboard')
+        return redirect(url_for('dashboard_reviewer_two'))
+
+    # Render review page (upload_result.html)
+    return render_template('upload_result.html',
+                           emp_id=emp_id,
+                           emp_name=employee.emp_name if employee else None,
+                           training_status='Completed',
+                           verification_status='Matched',
+                           employee=employee,
+                           verification=verification,
+                           role='reviewer_two')
 
 
 
@@ -970,45 +1069,6 @@ if __name__ == '__main__':
     with app.app_context():
         app.run(debug=True, use_reloader=False)
 
-import os
-from datetime import datetime
-from your_app.models import Employee, VerificationStatus  # Adjust import if needed
-
-def generate_certificate(emp_id):
-    employee = Employee.query.filter_by(emp_id=emp_id).first()
-    verification = VerificationStatus.query.filter_by(emp_id=emp_id).first()
-    
-    if not employee or not verification:
-        print(f"Error: Employee or verification not found for emp_id {emp_id}")
-        return
-
-    training_id = verification.training_id or 0
-
-    # Ensure certificates directory exists
-    cert_dir = "certificates"
-    os.makedirs(cert_dir, exist_ok=True)
-
-    # Format today's date
-    approval_date = datetime.now().strftime("%d-%m-%Y")
-
-    # Certificate content
-    cert_text = (
-        "------------------------------\n"
-        "     Certificate of Completion\n"
-        "------------------------------\n\n"
-        f"This is to certify that {employee.emp_name} (Employee ID: {emp_id})\n"
-        f"has successfully completed the required training (Training ID: {training_id}).\n\n"
-        f"Date of Approval: {approval_date}\n"
-        "Approved by: Reviewer Two\n\n"
-        "------------------------------\n"
-    )
-
-    cert_filename = os.path.join(cert_dir, f"{emp_id}_{training_id}.txt")
-
-    with open(cert_filename, "w") as f:
-        f.write(cert_text)
-
-    print(f"✅ Certificate generated: {cert_filename}")
 
 
 @app.route('/reviewer_two_pending')
@@ -1017,7 +1077,6 @@ def reviewer_two_pending():
         return redirect('/login')
     verifications = VerificationStatus.query.filter_by(reviewer_one_status='approved', reviewer_two_status='pending').all()
     return render_template('reviewer_two_dashboard.html', verifications=verifications)
-
 
 
 @app.route('/review_request/<emp_id>')
@@ -1029,16 +1088,50 @@ def review_request(emp_id):
     verification = VerificationStatus.query.filter_by(emp_id=emp_id).first()
 
     if not employee or not verification:
-        flash("Record not found.")
+        flash("Employee or verification record not found.")
         return redirect('/dashboard_reviewer_two')
 
-    return render_template(
-        'upload_result.html',
-        emp_id=emp_id,
-        emp_name=employee.emp_name,
-        training_status="Completed",  # if you're extracting this from PDF, you can update it
-        training_id=verification.training_id,
-        verification_status=verification.reviewer_two_status,
-        employee=employee,
-        role="reviewer_two"
-    )
+    return render_template('upload_result.html',
+                           emp_name=employee.emp_name,
+                           emp_id=emp_id,
+                           training_status='Completed',  # Or extract from verification if stored
+                           verification_status='Matched',  # Based on logic
+                           role='reviewer_two',
+                           verification=verification,
+                           training_id=verification.training_id)
+
+
+
+@app.route('/final_approval', methods=['POST'])
+def final_approval():
+    if 'username' not in session or session.get('role') != 'reviewer_two':
+        return redirect('/login')
+
+    emp_id = request.form['emp_id']
+    decision = request.form['decision']
+    training_id = request.form['training_id']
+
+    verification = VerificationStatus.query.filter_by(emp_id=emp_id).first()
+    if not verification:
+        flash("Verification record not found.")
+        return redirect('/dashboard_reviewer_two')
+
+    if decision == 'approved':
+        verification.status = 'fully_approved'
+
+        # Generate certificate logic here (simple example)
+        certificate = Certificate(
+            emp_id=emp_id,
+            training_id=training_id,
+            issued_by=session['username']
+        )
+        db.session.add(certificate)
+
+    elif decision == 'rejected':
+        verification.status = 'rejected_by_reviewer_two'
+
+    db.session.commit()
+    flash("Decision saved successfully.")
+    return redirect('/dashboard_reviewer_two')
+
+

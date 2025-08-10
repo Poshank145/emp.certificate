@@ -1,74 +1,512 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html>
 <head>
     <title>Reviewer Two Dashboard</title>
     <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+
+        h2 {
+            color: #333;
+        }
+
         table {
-            border-collapse: collapse;
             width: 100%;
-            margin-bottom: 40px;
+            border-collapse: collapse;
+            margin-top: 20px;
         }
+
         th, td {
-            border: 1px solid #999;
-            padding: 8px;
+            padding: 12px;
+            border: 1px solid #ccc;
+            text-align: center;
         }
-        h2, h3 {
-            margin-top: 30px;
+
+        th {
+            background-color: #f5f5f5;
         }
-        a {
+
+        a.button, button {
+            padding: 6px 12px;
             text-decoration: none;
-            color: blue;
+            color: white;
+            background-color: #007bff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        a.button:hover, button:hover {
+            background-color: #0056b3;
+        }
+
+        .flash {
+            color: green;
+            margin-bottom: 20px;
         }
     </style>
 </head>
 <body>
-    <h2>Welcome Sr. Officer, {{ username }}</h2>
-    <a href="/logout">Logout</a>
 
-    <h3>🕒 Pending Approvals</h3>
-    <table>
-        <tr>
-            <th>Employee ID</th>
-            <th>Training ID</th>
-            <th>Action</th>
-        </tr>
-        {% for v in pending_verifications %}
-        <tr>
-            <td>{{ v.emp_id }}</td>
-            <td>{{ v.training_id }}</td>
-            <td><a href="{{ url_for('review_request', emp_id=v.emp_id) }}">Review</a></td>
-        </tr>
-        {% else %}
-        <tr><td colspan="3">No pending approvals.</td></tr>
-        {% endfor %}
-    </table>
+    <h2>Reviewer Two Dashboard</h2>
 
-    <h3>📜 Approval History</h3>
-    <table>
-        <tr>
-            <th>Employee ID</th>
-            <th>Training ID</th>
-            <th>Reviewer One Status</th>
-            <th>Reviewer Two Status</th>
-            <th>Certificate</th>
-        </tr>
-        {% for v in all_verifications %}
-        <tr>
-            <td>{{ v.emp_id }}</td>
-            <td>{{ v.training_id }}</td>
-            <td>{{ v.reviewer_one_status }}</td>
-            <td>{{ v.reviewer_two_status }}</td>
-            <td>
-                {% if v.reviewer_two_status == 'approved' %}
-                    <a href="{{ url_for('static', filename='certificates/' + v.emp_id + '_' + v.training_id|string + '.txt') }}" target="_blank">View Certificate</a>
-                {% else %}
-                    Pending
-                {% endif %}
-            </td>
-        </tr>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="flash">
+            {% for message in messages %}
+              <p>{{ message }}</p>
+            {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <h3>Pending Verifications</h3>
+    {% if pending_verifications %}
+        <table>
+            <tr>
+                <th>Employee ID</th>
+                <th>Employee Name</th>
+                <th>Training Status</th>
+                <th>Action</th>
+            </tr>
+            {% for v in pending_verifications %}
+            <tr>
+                <td>{{ v.emp_id }}</td>
+                <td>{{ v.emp_name }}</td>
+                <td>{{ v.training_status }}</td>
+                <td>
+                    <form method="GET" action="{{ url_for('reviewer_two_decision', emp_id=v.emp_id) }}">
+                        <button type="submit">Review</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p>No pending verifications.</p>
+    {% endif %}
+
+    <h3>Approved Verifications (Certificate Available)</h3>
+    {% if all_verifications %}
+        <table>
+            <tr>
+                <th>Employee ID</th>
+                <th>Employee Name</th>
+                <th>Reviewer Two Status</th>
+                <th>Certificate</th>
+            </tr>
+            {% for v in all_verifications %}
+            {% if v.reviewer_two_status == 'approved' %}
+            <tr>
+                <td>{{ v.emp_id }}</td>
+                <td>{{ v.emp_name }}</td>
+                <td>{{ v.reviewer_two_status }}</td>
+                <td>
+                    <p>Debug path: /static/certificates/{{ v.emp_id }}_certificate.pdf</p>
+
+                    <a class="button" href="{{ url_for('static', filename='certificates/' + v.emp_id + '_certificate.pdf') }}" download>Download</a>
+                </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </table>
+    {% else %}
+        <p>No certificates available yet.</p>
+    {% endif %}
+
+    
+
+</body>
+</html>
+
+
+
+ -->
+
+
+
+
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reviewer Two Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-blue: #1a73e8;
+            --dark-blue: #0d47a1;
+            --light-blue: #e8f0fe;
+            --success-green: #34a853;
+            --warning-orange: #fbbc05;
+            --error-red: #ea4335;
+            --text-dark: #202124;
+            --text-light: #5f6368;
+            --white: #ffffff;
+            --border-radius: 6px;
+            --box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+        
+        /* Navigation Bar */
+        .navbar {
+            background-color: var(--primary-blue);
+            color: var(--white);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--box-shadow);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            font-weight: 600;
+            font-size: 18px;
+        }
+        
+        .logo i {
+            margin-right: 10px;
+            font-size: 20px;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .nav-links a {
+            color: var(--white);
+            text-decoration: none;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            transition: opacity 0.3s;
+        }
+        
+        .nav-links a:hover {
+            opacity: 0.9;
+        }
+        
+        .nav-links a i {
+            margin-right: 6px;
+        }
+        
+        /* Main Content */
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+        
+        .page-header {
+            margin-bottom: 25px;
+        }
+        
+        .page-header h2 {
+            color: var(--text-dark);
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        
+        /* Flash Messages */
+        .flash {
+            background-color: rgba(52, 168, 83, 0.1);
+            color: var(--success-green);
+            padding: 12px 15px;
+            border-radius: var(--border-radius);
+            margin-bottom: 25px;
+            border-left: 4px solid var(--success-green);
+            display: flex;
+            align-items: center;
+        }
+        
+        .flash i {
+            margin-right: 10px;
+        }
+        
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            box-shadow: var(--box-shadow);
+            background: var(--white);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+        }
+        
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        th {
+            background-color: var(--light-blue);
+            color: var(--primary-blue);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+        }
+        
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 8px 16px;
+            border-radius: var(--border-radius);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+        }
+        
+        .btn i {
+            margin-right: 8px;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-blue);
+            color: var(--white);
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--dark-blue);
+            transform: translateY(-1px);
+        }
+        
+        .btn-success {
+            background-color: var(--success-green);
+            color: var(--white);
+            border: none;
+        }
+        
+        .btn-success:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+        
+        .approved {
+            background-color: rgba(52, 168, 83, 0.1);
+            color: var(--success-green);
+        }
+        
+        .pending {
+            background-color: rgba(251, 188, 5, 0.1);
+            color: var(--warning-orange);
+        }
+        
+        /* Empty State */
+        .empty-state {
+            background: var(--white);
+            padding: 30px;
+            text-align: center;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            color: var(--text-light);
+        }
+        
+        .empty-state i {
+            font-size: 40px;
+            color: var(--light-blue);
+            margin-bottom: 15px;
+        }
+        
+        /* Debug Info */
+        .debug-info {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-top: 5px;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                padding: 15px;
+            }
+            
+            .logo {
+                margin-bottom: 15px;
+            }
+            
+            .nav-links {
+                width: 100%;
+                justify-content: space-between;
+                flex-wrap: wrap;
+            }
+            
+            table {
+                display: block;
+                overflow-x: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="logo">
+            <i class="fas fa-file-alt"></i>
+            <span>ReviewPro</span>
+        </div>
+        
+        <div class="nav-links">
+            <a href="/"><i class="fas fa-home"></i> Home</a>
+            <a href="{{ url_for('upload_pdf') }}"><i class="fas fa-upload"></i> Upload</a>
+            <a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </div>
+    </nav>
+    
+    <!-- Main Content -->
+    <div class="container">
+        <div class="page-header">
+            <h2>Reviewer Two Dashboard</h2>
+        </div>
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="flash">
+                <i class="fas fa-check-circle"></i>
+                <div>
+                    {% for message in messages %}
+                      <p>{{ message }}</p>
+                    {% endfor %}
+                </div>
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <h3>Pending Verifications</h3>
+        {% if pending_verifications %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Employee ID</th>
+                        <th>Employee Name</th>
+                        <th>Training Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in pending_verifications %}
+                    <tr>
+                        <td>{{ v.emp_id }}</td>
+                        <td>{{ v.emp_name }}</td>
+                        <td>{{ v.training_status }}</td>
+                        <td>
+                            <form method="GET" action="{{ url_for('reviewer_two_decision', emp_id=v.emp_id) }}" style="display: inline;">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-clipboard-check"></i> Review
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         {% else %}
-        <tr><td colspan="5">No verification records.</td></tr>
-        {% endfor %}
-    </table>
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <p>No pending verifications at this time.</p>
+            </div>
+        {% endif %}
+
+        <h3 style="margin-top: 40px;">Approved Verifications (Certificate Available)</h3>
+        {% if all_verifications %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Employee ID</th>
+                        <th>Employee Name</th>
+                        <th>Review Status</th>
+                        <th>Certificate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in all_verifications %}
+                    {% if v.reviewer_two_status == 'approved' %}
+                    <tr>
+                        <td>{{ v.emp_id }}</td>
+                        <td>{{ v.emp_name }}</td>
+                        <td>
+                            <span class="status-badge approved">{{ v.reviewer_two_status }}</span>
+                        </td>
+                        <td>
+                            <a class="btn btn-success" href="{{ url_for('static', filename='certificates/' + v.emp_id + '_certificate.pdf') }}" download>
+                                <i class="fas fa-download"></i> Download
+                            </a>
+                            <div class="debug-info">/static/certificates/{{ v.emp_id }}_certificate.pdf</div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-file-pdf"></i>
+                <p>No certificates available yet.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+        // Add interactive effects
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add hover effects to table rows
+            const rows = document.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                row.addEventListener('mouseenter', function() {
+                    this.style.backgroundColor = '#f5f5f5';
+                    this.style.transition = 'background-color 0.2s ease';
+                });
+                row.addEventListener('mouseleave', function() {
+                    this.style.backgroundColor = '';
+                });
+            });
+            
+            // Add loading state to buttons
+            const buttons = document.querySelectorAll('button, .btn');
+            buttons.forEach(button => {
+                button.addEventListener('click', function() {
+                    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + this.textContent.trim();
+                });
+            });
+        });
+    </script>
 </body>
 </html>

@@ -18,6 +18,7 @@
             <td>{{ employee.emp_name }}</td>
             <td>{{ training.training_name }}</td>
             <td>
+            
                 <form action="{{ url_for('reviewer_one_action') }}" method="post" style="display:inline;">
                     <input type="hidden" name="certificate_id" value="{{ status.certificate_id }}">
                     <button name="action" value="approve">Approve</button>
