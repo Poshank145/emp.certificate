@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -59,5 +59,412 @@
         </tr>
         {% endfor %}
     </table>
+</body>
+</html> -->
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | NMD Ltd</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <style>
+        :root {
+            --primary-blue: #1a73e8;
+            --dark-blue: #0d47a1;
+            --light-blue: #e8f0fe;
+            --white: #ffffff;
+            --text-dark: #202124;
+            --text-light: #5f6368;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            color: var(--text-dark);
+        }
+        
+        /* Navigation */
+        .navbar {
+            background-color: var(--primary-blue);
+            color: var(--white);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            font-weight: 600;
+            font-size: 18px;
+        }
+        
+        .logo-icon {
+            width: 30px;
+            height: 30px;
+            background-color: var(--white);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+        }
+        
+        .logo-icon i {
+            color: var(--primary-blue);
+            font-size: 16px;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .nav-links a {
+            color: var(--white);
+            text-decoration: none;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            transition: opacity 0.3s;
+        }
+        
+        .nav-links a:hover {
+            opacity: 0.9;
+        }
+        
+        /* Main Content */
+        .container {
+            max-width: 1400px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+        
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        .section-title {
+            display: flex;
+            align-items: center;
+            color: var(--primary-blue);
+            margin-bottom: 20px;
+        }
+        
+        .section-title i {
+            margin-right: 10px;
+            font-size: 24px;
+        }
+        
+        /* DataTables Customization */
+        .dataTables_wrapper {
+            background: var(--white);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: var(--box-shadow);
+            margin-bottom: 40px;
+        }
+        
+        table.dataTable {
+            width: 100% !important;
+            border-collapse: collapse !important;
+        }
+        
+        table.dataTable thead th {
+            background-color: var(--light-blue) !important;
+            color: var(--primary-blue) !important;
+            font-weight: 600 !important;
+            border-bottom: 2px solid var(--primary-blue) !important;
+        }
+        
+        table.dataTable tbody tr {
+            transition: background-color 0.2s;
+        }
+        
+        table.dataTable tbody tr:hover {
+            background-color: #f5f5f5 !important;
+        }
+        
+        table.dataTable tbody td {
+            border-bottom: 1px solid #eee !important;
+            padding: 12px 15px !important;
+        }
+        
+        /* Action Buttons */
+        .action-btn {
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            margin-right: 5px;
+        }
+        
+        .action-btn i {
+            margin-right: 5px;
+            font-size: 12px;
+        }
+        
+        .btn-view {
+            background-color: var(--primary-blue);
+            color: white;
+            border: none;
+        }
+        
+        .btn-edit {
+            background-color: #ffc107;
+            color: #212529;
+            border: none;
+        }
+        
+        .btn-delete {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+        }
+        
+        /* Search and Filter */
+        .dataTables_filter input {
+            border: 1px solid #ddd !important;
+            border-radius: var(--border-radius) !important;
+            padding: 8px 12px !important;
+        }
+        
+        .dataTables_length select {
+            border: 1px solid #ddd !important;
+            border-radius: var(--border-radius) !important;
+            padding: 6px !important;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                padding: 15px;
+            }
+            
+            .logo {
+                margin-bottom: 15px;
+            }
+            
+            .nav-links {
+                width: 100%;
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+            
+            .dashboard-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="logo">
+            <div class="logo-icon">
+                <i class="fas fa-certificate"></i>
+            </div>
+            <span>NMD Ltd - Admin Dashboard</span>
+        </div>
+        
+        <div class="nav-links">
+            <a href="/admin"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+            <a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </div>
+    </nav>
+    
+    <!-- Main Content -->
+    <div class="container">
+        <div class="dashboard-header">
+            <h1><i class="fas fa-user-shield"></i> Administrator Panel</h1>
+            <div>
+                <button class="action-btn btn-view" onclick="location.href='/admin/add_employee'">
+                    <i class="fas fa-user-plus"></i> Add Employee
+                </button>
+                <button class="action-btn btn-edit" onclick="location.href='/admin/add_training'">
+                    <i class="fas fa-calendar-plus"></i> Schedule Training
+                </button>
+            </div>
+        </div>
+        
+        <!-- Employees Table -->
+        <div class="section-title">
+            <i class="fas fa-users"></i>
+            <h2>Employee Records</h2>
+        </div>
+        
+        <table id="employeesTable" class="display">
+            <thead>
+                <tr>
+                    <th>Employee ID</th>
+                    <th>Name</th>
+                    <th>Father's Name</th>
+                    <th>Mother's Name</th>
+                    <th>SAP ID</th>
+                    <th>Designation</th>
+                    <th>Department</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for emp in employees %}
+                <tr>
+                    <td>{{ emp.emp_id }}</td>
+                    <td>{{ emp.emp_name }}</td>
+                    <td>{{ emp.father_name }}</td>
+                    <td>{{ emp.mother_name }}</td>
+                    <td>{{ emp.sap_id }}</td>
+                    <td>{{ emp.designation }}</td>
+                    <td>{{ emp.dept_id }}</td>
+                    <td>
+                        <button class="action-btn btn-view" onclick="viewEmployee('{{ emp.emp_id }}')">
+                            <i class="fas fa-eye"></i> View
+                        </button>
+                        <button class="action-btn btn-edit" onclick="editEmployee('{{ emp.emp_id }}')">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <!-- Trainings Table -->
+        <!-- <div class="section-title">
+            <i class="fas fa-graduation-cap"></i>
+            <h2>Training Records</h2>
+        </div>
+        
+        <table id="trainingsTable" class="display">
+            <thead>
+                <tr>
+                    <th>Training ID</th>
+                    <th>Emp ID</th>
+                    <th>Training Name</th>
+                    <th>Scheduled Date</th>
+                    <th>Joining Date</th>
+                    <th>Completion Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in trainings %}
+                <tr>
+                    <td>{{ t.training_id }}</td>
+                    <td>{{ t.emp_id }}</td>
+                    <td>{{ t.training_name }}</td>
+                    <td>{{ t.scheduled_date }}</td>
+                    <td>{{ t.joining_date }}</td>
+                    <td>{{ t.completion_date }}</td>
+                    <td>
+                        <span class="status-badge">{{ t.status|default('Pending') }}</span>
+                    </td>
+                    <td>
+                        <button class="action-btn btn-view" onclick="viewTraining('{{ t.training_id }}')">
+                            <i class="fas fa-eye"></i> View
+                        </button>
+                        <button class="action-btn btn-edit" onclick="editTraining('{{ t.training_id }}')">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table> -->
+    </div>
+
+    <!-- JavaScript Libraries -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script>
+        // Initialize DataTables
+        $(document).ready(function() {
+            $('#employeesTable').DataTable({
+                responsive: true,
+                dom: '<"top"lf>rt<"bottom"ip>',
+                pageLength: 10,
+                language: {
+                    search: "_INPUT_",
+                    searchPlaceholder: "Search employees..."
+                }
+            });
+            
+            $('#trainingsTable').DataTable({
+                responsive: true,
+                dom: '<"top"lf>rt<"bottom"ip>',
+                pageLength: 10,
+                language: {
+                    search: "_INPUT_",
+                    searchPlaceholder: "Search trainings..."
+                }
+            });
+        });
+        
+        // Action Functions
+        function viewEmployee(empId) {
+            window.location.href = `/admin/employee/${empId}`;
+        }
+        
+        function editEmployee(empId) {
+            window.location.href = `/admin/edit_employee/${empId}`;
+        }
+        
+        function viewTraining(trainingId) {
+            window.location.href = `/admin/training/${trainingId}`;
+        }
+        
+        function editTraining(trainingId) {
+            window.location.href = `/admin/edit_training/${trainingId}`;
+        }
+        
+        // Status badge colors
+        document.querySelectorAll('.status-badge').forEach(badge => {
+            const status = badge.textContent.toLowerCase();
+            badge.classList.add(`status-${status}`);
+            
+            if(status.includes('pending')) {
+                badge.style.backgroundColor = 'rgba(251, 188, 5, 0.1)';
+                badge.style.color = '#fbbc05';
+            } else if(status.includes('complete')) {
+                badge.style.backgroundColor = 'rgba(52, 168, 83, 0.1)';
+                badge.style.color = '#34a853';
+            } else if(status.includes('cancel')) {
+                badge.style.backgroundColor = 'rgba(234, 67, 53, 0.1)';
+                badge.style.color = '#ea4335';
+            }
+            
+            badge.style.padding = '4px 10px';
+            badge.style.borderRadius = '12px';
+            badge.style.fontSize = '12px';
+            badge.style.fontWeight = '600';
+            badge.style.display = 'inline-block';
+        });
+    </script>
 </body>
 </html>
